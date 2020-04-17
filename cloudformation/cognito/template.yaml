@@ -26,6 +26,10 @@ Parameters:
     Type: String
     Description: The name of the DynamoDB PreLoginAccounts table.
     Default: 'DevPortalPreLoginAccounts'
+  DevPortalRegion: 
+    Type: String
+    Description: Region where dev portal is deployed
+    Default: 'eu-west-1'
   DevPortalCustomersTableName:
     Type: String
     Description: The name of the DynamoDB Customers table.
@@ -40,11 +44,19 @@ Parameters:
       - 'false'
       - 'true'
     ConstraintDescription: Malformed input - Parameter DevelopmentMode value must be either 'true' or 'false'
-
+  LocalDevelopmentMode:
+    Type: String
+    Description: Enabling this disables CORS for easier local development. Do not enable this in production! Additionally, do not update a stack that was previously in development mode to be a production stack; instead, make a new stack that has never been in development mode.
+    Default: 'false'
+    AllowedValues: 
+      - 'false'
+      - 'true'
+    ConstraintDescription: Malformed input - Parameter LocalDevelopmentMode value must be either 'true' or 'false'
+  
 Conditions:
   InviteAccountRegistrationMode: !Equals [!Ref AccountRegistrationMode, 'invite']
   DevelopmentMode: !Equals [!Ref DevelopmentMode, 'true']
-
+  LocalDevelopmentMode: !Or [!Equals [!Ref DevelopmentMode, 'true'], !Equals [!Ref LocalDevelopmentMode, 'true']]
 
 Resources:
 
@@ -143,7 +155,7 @@ Resources:
             Action:
               - dynamodb:Scan
               - dynamodb:PutItem
-            Resource: !GetAtt CustomersTable.Arn
+            Resource: !Join ['', ['arn:aws:dynamodb:', !Ref DevPortalRegion, ':', !Ref 'AWS::AccountId',':table/', !Ref DevPortalCustomersTableName]]
           - Effect: Allow
             Action:
               - dynamodb:GetItem
@@ -342,7 +354,7 @@ Resources:
       SupportedIdentityProviders: [ "COGNITO" ] # should (eventually) allow people to add values
       CallbackURL: !If [ LocalDevelopmentMode,
         'http://localhost:3000/index.html?action=login',
-          !Join [ '', [ 'https://', !Ref DevPortalSiteS3BucketHostname, '/index.html?action=login' ]]
+          !Join [ '', [ 'https://', !Ref DevPortalSiteS3BucketHostname, '/index.html?action=login' ]] #TODO ADD Cloufront link
       ]
       LogoutURL: !If [ LocalDevelopmentMode,
         'http://localhost:3000/index.html?action=logout',
@@ -609,30 +621,39 @@ Resources:
           - !Ref 'AWS::AccountId'
           - ':userpool/'
           - !Ref CognitoUserPool
-    
-Outputs:
   CognitoUserPoolArn:
-    Value: !GetAtt CognitoUserPool.Arn
-    Export:
-      Name: DevPortalCognitoUserPoolArn
-
-  CognitoIdentityPoolId:
-    Value: !Ref CognitoIdentityPool
-    Export:
-      Name: DevPortalCognitoIdentityPoolId # !Ref CognitoIdentityPool
+    Type: AWS::SSM::Parameter
+    Properties: 
+      Name: /dev-portal/cognito/user-pool/arn
+      Type: String
+      Value: !GetAtt CognitoUserPool.Arn
   CognitoUserPoolId:
-    Value: !Ref CognitoUserPool
-    Export:
-      Name: DevPortalCognitoUserPoolId # !Ref CognitoUserPool
+    Type: AWS::SSM::Parameter
+    Properties: 
+      Name: /dev-portal/cognito/user-pool/id
+      Type: String
+      Value: !Ref CognitoUserPool
+  CognitoIdentityPoolId:
+    Type: AWS::SSM::Parameter
+    Properties: 
+      Name: /dev-portal/cognito/identity-pool/id
+      Type: String
+      Value: !Ref CognitoIdentityPool
   CognitoUserPoolClientId:
-    Value: !Ref CognitoUserPoolClient
-    Export:
-      Name: DevPortalCognitoUserPoolClientId # !Ref CognitoUserPoolClient
+    Type: AWS::SSM::Parameter
+    Properties: 
+      Name: /dev-portal/cognito/user-pool/client-id
+      Type: String
+      Value: !Ref CognitoUserPoolClient # !Ref CognitoUserPoolClient
   CognitoUserPoolDomainFullUrl:
-    Value: !GetAtt CognitoUserPoolDomain.FullUrl
-    Export:
-      Name: DevPortalCognitoUserPoolDomainFullUrl # !GetAtt CognitoUserPoolDomain.FullUrl
+    Type: AWS::SSM::Parameter
+    Properties: 
+      Name: /dev-portal/cognito/user-pool/full-url
+      Type: String
+      Value: !GetAtt CognitoUserPoolDomain.FullUrl
   CognitoAdminsGroupName:
-    Value: !Ref CognitoAdminsGroup
-    Export:
-      Name: DevPortalCognitoAdminsGroupName # !Ref CognitoAdminsGroup
+    Type: AWS::SSM::Parameter
+    Properties: 
+      Name: /dev-portal/cognito/user-pool/admins-group
+      Type: String
+      Value: !Ref CognitoAdminsGroup

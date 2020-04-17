@@ -141,6 +141,16 @@ Parameters:
       - 'open'
       - 'request'
       - 'invite'
+  
+  CognitoRegion: 
+    Type: String
+    Description: Region where cognito is deployed
+    Default: 'eu-west-1'
+
+  PreLoginAccountsTableName:
+    Type: String
+    Description: The name of the DynamoDB PreLoginAccounts table.
+    Default: 'DevPortalPreLoginAccountsV2'
 
 Conditions:
   UseCustomDomainName: !And [!And [!Not [!Equals [!Ref CustomDomainName, '']], !Not [!Equals [!Ref CustomDomainNameAcmCertArn, '']]], !Condition NotDevelopmentMode]
@@ -154,6 +164,154 @@ Conditions:
   InviteAccountRegistrationMode: !Equals [!Ref AccountRegistrationMode, 'invite']
 
 Resources:
+  GetSSMParameterLambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: "/"
+      Policies:
+      - PolicyName: root
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - logs:*
+            Resource: arn:aws:logs:*:*:*
+          - Effect: Allow
+            Action:
+            - ssm:getParameter
+            Resource: '*'
+  GetSSMParameterLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.handler
+      Role: {"Fn::GetAtt":  [GetSSMParameterLambdaExecutionRole, Arn]}
+      Runtime: nodejs12.x
+      Timeout: 30
+      Code:
+        ZipFile:
+          Fn::Join:
+          - "\n"
+          -   
+              - "/**"
+              - "* A sample Lambda function that looks up the compute envornmments"
+              - "**/"
+              - "var aws = require('aws-sdk');"
+              - "exports.handler = function(event, context) {"
+              - "    console.log('REQUEST RECEIVED:' + JSON.stringify(event));"
+              - "    var responseStatus = 'FAILED';"
+              - "    var responseData = {};"
+              - "    var ssm = new aws.SSM({region: event.ResourceProperties.Region});"
+              - "    var params = {"
+              - "        Name: event.ResourceProperties.parameterName,"
+              - "        WithDecryption: false"
+              - "       };"
+              - "    // Get ecsClusterArn with the specified name"
+              - "    ssm.getParameter(params, function(err, data) {"
+              - "        if (err) {"
+              - "            responseData = {Error: 'getParameter call failed'};"
+              - "            console.log(responseData.Error + ':', err);"
+              - "        }"
+              - "        else {"
+              - "            var value = data.Parameter.Value;"
+              - "            responseStatus = 'SUCCESS';"
+              - "            responseData = value;"
+              - "        }"
+              - "        sendResponse(event, context, responseStatus, responseData);"
+              - "    });"
+              - "};"
+              - "// Send response to the pre-signed S3 URL "
+              - "function sendResponse(event, context, responseStatus, responseData) {"
+              - "    var responseBody = JSON.stringify({"
+              - "        Status: responseStatus,"
+              - "        Reason: 'See the details in CloudWatch Log Stream: ' + context.logStreamName,"
+              - "        PhysicalResourceId: context.logStreamName,"
+              - "        StackId: event.StackId,"
+              - "        RequestId: event.RequestId,"
+              - "        LogicalResourceId: event.LogicalResourceId,"
+              - "        Data: {value: responseData}"
+              - "    });"
+              - "    console.log('RESPONSE BODY:', responseBody);"
+              - "    var https = require('https');"
+              - "    var url = require('url');"
+              - "    var parsedUrl = url.parse(event.ResponseURL);"
+              - "    var options = {"
+              - "        hostname: parsedUrl.hostname,"
+              - "        port: 443,"
+              - "        path: parsedUrl.path,"
+              - "        method: 'PUT',"
+              - "        headers: {"
+              - "            'content-type': '',"
+              - "            'content-length': responseBody.length"
+              - "        }"
+              - "    };"
+              - "    console.log('SENDING RESPONSE...');"
+              - "    var request = https.request(options, function(response) {"
+              - "        console.log('STATUS: ' + response.statusCode);"
+              - "        console.log('HEADERS: ' + JSON.stringify(response.headers));"
+              - "        // Tell AWS Lambda that the function execution is done  "
+              - "        context.done();"
+              - "    });"
+              - "    request.on('error', function(error) {"
+              - "        console.log('sendResponse Error:' + error);"
+              - "        // Tell AWS Lambda that the function execution is done  "
+              - "        context.done();"
+              - "    });"
+              - "    // write data to request body"
+              - "    request.write(responseBody);"
+              - "    request.end();"
+              - "}"
+  CognitoUserPoolArn:
+    Type: Custom::GetCrossRegionSSMParamater
+    Properties:
+      ServiceToken: {"Fn::GetAtt": [GetSSMParameterLambda, Arn]}
+      Region: !Ref CognitoRegion
+      parameterName: '/dev-portal/cognito/user-pool/arn'
+
+  CognitoUserPoolId:
+    Type: Custom::GetCrossRegionSSMParamater
+    Properties:
+      ServiceToken: {"Fn::GetAtt": [GetSSMParameterLambda, Arn]}
+      Region: !Ref CognitoRegion
+      parameterName: '/dev-portal/cognito/user-pool/id'
+
+  CognitoIdentityPoolId:
+    Type: Custom::GetCrossRegionSSMParamater
+    Properties:
+      ServiceToken: {"Fn::GetAtt": [GetSSMParameterLambda, Arn]}
+      Region: !Ref CognitoRegion
+      parameterName: '/dev-portal/cognito/identity-pool/id'
+  
+  CognitoUserPoolClientId:
+    Type: Custom::GetCrossRegionSSMParamater
+    Properties:
+      ServiceToken: {"Fn::GetAtt": [GetSSMParameterLambda, Arn]}
+      Region: !Ref CognitoRegion
+      parameterName: '/dev-portal/cognito/user-pool/client-id'
+
+  CognitoUserPoolDomainFullUrl:
+    Type: Custom::GetCrossRegionSSMParamater
+    Properties:
+      ServiceToken: {"Fn::GetAtt": [GetSSMParameterLambda, Arn]}
+      Region: !Ref CognitoRegion
+      parameterName: '/dev-portal/cognito/user-pool/full-url'
+  
+  CognitoAdminsGroupName:
+    Type: Custom::GetCrossRegionSSMParamater
+    Properties:
+      ServiceToken: {"Fn::GetAtt": [GetSSMParameterLambda, Arn]}
+      Region: !Ref CognitoRegion
+      parameterName: '/dev-portal/cognito/user-pool/admins-group'
+
   ApiGatewayApi:
     Type: AWS::Serverless::Api
     Properties:
@@ -742,7 +900,7 @@ Resources:
             - dynamodb:PutItem
             - dynamodb:UpdateItem
             - dynamodb:DeleteItem
-            Resource: !GetAtt PreLoginAccountsTable.Arn
+            Resource: !Join ['', ['arn:aws:dynamodb:', !Ref CognitoRegion, ':', !Ref 'AWS::AccountId',':table/', !Ref PreLoginAccountsTableName]]
           - Effect: Allow
             Action:
             - dynamodb:Query
@@ -792,7 +950,7 @@ Resources:
               - cognito-idp:AdminDeleteUser
               - cognito-idp:AdminGetUser
               - cognito-idp:AdminListGroupsForUser
-            Resource: !ImportValue DevPortalCognitoUserPoolArn
+            Resource: !GetAtt CognitoUserPoolArn.value
 
   CatalogUpdaterLambdaExecutionRole:
     Type: AWS::IAM::Role
@@ -1013,7 +1171,7 @@ Resources:
           FeedbackTableName: !Ref DevPortalFeedbackTableName
           FeedbackSnsTopicArn:
             !If [EnableFeedbackSubmission, !Ref FeedbackSubmittedSNSTopic, '']
-          UserPoolId: !ImportValue DevPortalCognitoUserPoolId
+          UserPoolId: !GetAtt CognitoUserPoolId.value
           AdminsGroupName: !Join ['', [!Ref 'AWS::StackName', 'AdminsGroup']]
           RegisteredGroupName: !Sub '${AWS::StackName}-RegisteredGroup'
           DevelopmentMode: !Ref DevelopmentMode
@@ -1093,10 +1251,10 @@ Resources:
       BucketName: !Ref DevPortalSiteS3Bucket
       RestApiId: !Ref ApiGatewayApi
       Region: !Ref 'AWS::Region'
-      IdentityPoolId: !ImportValue DevPortalCognitoIdentityPoolId
-      UserPoolId: !ImportValue DevPortalCognitoUserPoolId
-      UserPoolClientId: !ImportValue DevPortalCognitoUserPoolIdClient
-      UserPoolDomain: !ImportValue DevPortalCognitoUserPoolDomainFullUrl
+      IdentityPoolId: !GetAtt CognitoIdentityPoolId.value
+      UserPoolId: !GetAtt CognitoUserPoolId.value
+      UserPoolClientId: !GetAtt CognitoUserPoolClientId.value
+      UserPoolDomain: !GetAtt CognitoUserPoolDomainFullUrl.value
       MarketplaceSuffix: !Ref MarketplaceSubscriptionTopicProductCode
       RebuildToken: !Ref StaticAssetRebuildToken
       RebuildMode: !Ref StaticAssetRebuildMode
@@ -1207,8 +1365,8 @@ Resources:
       Environment:
         Variables:
           CustomersTableName: !Ref DevPortalCustomersTableName
-          UserPoolId: !ImportValue DevPortalCognitoUserPoolId
-          AdminsGroupName: !ImportValue DevPortalCognitoAdminsGroupName
+          UserPoolId: !GetAtt CognitoUserPoolId.value
+          AdminsGroupName: !GetAtt CognitoAdminsGroupName.value
       Layers:
         - !Ref LambdaCommonLayer
 
@@ -1248,7 +1406,7 @@ Resources:
             Action:
               - cognito-idp:ListUsers
               - cognito-idp:ListUsersInGroup
-            Resource: !ImportValue DevPortalCognitoUserPoolArn
+            Resource: !GetAtt CognitoUserPoolArn.value
 
 Outputs:
   WebsiteURL:
