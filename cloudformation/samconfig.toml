@@ -1,0 +1,11 @@
+version = 0.1
+[default]
+[default.deploy]
+[default.deploy.parameters]
+stack_name = "dev-portal"
+s3_bucket = "aws-sam-cli-managed-default-samclisourcebucket-rxpc0jkch41p"
+s3_prefix = "dev-portal"
+region = "eu-west-1"
+capabilities = "CAPABILITY_IAM"
+parameter_overrides = "ArtifactsS3BucketName=\"chazalf-eu-west-1-dev-portal-artifacts\" DevPortalSiteS3BucketName=\"chazalf-eu-west-1-dev-portal-static-assets\" CognitoDomainNameOrPrefix=\"chazalf-eu-west-1-dev-portal\""
+

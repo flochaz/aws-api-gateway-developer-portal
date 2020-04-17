@@ -1,0 +1,11 @@
+version = 0.1
+[default]
+[default.deploy]
+[default.deploy.parameters]
+stack_name = "dev-portal-cognito"
+s3_bucket = "aws-sam-cli-managed-default-samclisourcebucket-rxpc0jkch41p"
+s3_prefix = "dev-portal-cognito"
+region = "eu-west-1"
+capabilities = "CAPABILITY_IAM"
+parameter_overrides = "DevelopmentMode=\"true\" CognitoIdentityPoolName=\"DevPortalIdentityPool\" CognitoDomainNameOrPrefix=\"chazalf-eu-west-1-dev-portal\" AccountRegistrationMode=\"open\", DevPortalSiteS3BucketHostname=\"chazalf-eu-west-1-dev-portal-static-assets.s3-eu-west-1.amazonaws.com\""
+
