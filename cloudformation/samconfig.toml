@@ -1,0 +1,10 @@
+version = 0.1
+[default]
+[default.deploy]
+[default.deploy.parameters]
+stack_name = "dev-portal-new"
+s3_bucket = "aws-sam-cli-managed-default-samclisourcebucket-rxpc0jkch41p"
+s3_prefix = "dev-portal-new"
+region = "eu-west-1"
+capabilities = "CAPABILITY_IAM"
+parameter_overrides = "ArtifactsS3BucketName=\"chazalf-dev-portal-new-eu-west-1-artifacts\" DevPortalSiteS3BucketName=\"chazalf-dev-portal-new-eu-west-1-dev-portal\" DevPortalCustomersTableName=\"DevPortalCustomersNew\" DevPortalPreLoginAccountsTableName=\"DevPortalPreLoginAccountsNew\" DevPortalAdminEmail=\"florianchazal@gmail.com\" DevPortalFeedbackTableName=\"DevPortalFeedbackNew\" StaticAssetRebuildToken=\"defaultRebuildToken\" StaticAssetRebuildMode=\"\" MarketplaceSubscriptionTopicProductCode=\"DevPortalMarketplaceSubscriptionTopicNew\" CognitoIdentityPoolName=\"DevPortalIdentityPoolNew\" CognitoDomainNameOrPrefix=\"dev-portal-new-chazalf\" CustomDomainName=\"\" CustomDomainNameAcmCertArn=\"\" UseRoute53Nameservers=\"false\" DevelopmentMode=\"false\" LocalDevelopmentMode=\"false\" AccountRegistrationMode=\"open\""
