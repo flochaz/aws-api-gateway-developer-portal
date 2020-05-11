@@ -1,0 +1,22 @@
+{
+  "name": "cdk",
+  "version": "0.1.0",
+  "bin": {
+    "cdk": "bin/cdk.js"
+  },
+  "scripts": {
+    "build": "echo \"The build step is not required when using JavaScript!\" && exit 0",
+    "cdk": "cdk",
+    "test": "jest"
+  },
+  "devDependencies": {
+    "@aws-cdk/assert": "1.32.2",
+    "aws-cdk": "1.32.2",
+    "jest": "^24.9.0"
+  },
+  "dependencies": {
+    "@aws-cdk/aws-serverless": "^0.28.0",
+    "@aws-cdk/core": "1.32.2",
+    "js-yaml": "^3.13.1"
+  }
+}
